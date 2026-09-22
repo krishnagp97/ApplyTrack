@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -42,16 +43,17 @@ export default function SignIn() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "failed to sign In");
+        setError(result.error.message ?? "Failed to sign in");
       } else {
         router.push("/dashboard");
       }
-    } catch (err) {
-      setError("an unexpected error occured");
+    } catch {
+      setError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   }
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-white p-4">
       <Card className="w-full max-w-md border-gray-200 shadow-lg">
@@ -59,10 +61,12 @@ export default function SignIn() {
           <CardTitle className="text-2xl font-bold text-black">
             Sign In
           </CardTitle>
+
           <CardDescription className="text-gray-600">
             Enter your credentials to access your account
           </CardDescription>
         </CardHeader>
+
         <form className="space-y-4" onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             {error && (
@@ -70,10 +74,12 @@ export default function SignIn() {
                 {error}
               </div>
             )}
+
             <div className="space-y-2">
               <Label htmlFor="email" className="text-gray-700">
                 Email
               </Label>
+
               <Input
                 id="email"
                 type="email"
@@ -84,21 +90,33 @@ export default function SignIn() {
                 className="border-gray-300 focus:border-primary focus:ring-primary"
               />
             </div>
+
             <div className="space-y-2">
               <Label htmlFor="password" className="text-gray-700">
                 Password
               </Label>
+
               <Input
                 id="password"
                 type="password"
-                placeholder="John12#"
+                placeholder="Enter your password"
                 onChange={(e) => setPassword(e.target.value)}
                 value={password}
                 required
                 className="border-gray-300 focus:border-primary focus:ring-primary"
               />
+
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
             </div>
           </CardContent>
+
           <CardFooter className="flex flex-col space-y-4">
             <Button
               type="submit"
@@ -107,13 +125,14 @@ export default function SignIn() {
             >
               {loading ? "Signing in..." : "Sign In"}
             </Button>
+
             <p className="text-center text-sm text-gray-600">
               Don't have an account?{" "}
               <Link
                 href="/sign-up"
                 className="font-medium text-primary hover:underline"
               >
-                sign Up
+                Sign Up
               </Link>
             </p>
           </CardFooter>

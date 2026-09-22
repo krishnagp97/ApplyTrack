@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -10,9 +11,8 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { signUp } from "@/lib/auth/auth-client";
+import { signUp, authClient } from "@/lib/auth/auth-client";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -22,105 +22,31 @@ export default function SignUp() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
-  // TODO: Re-enable Resend OTP flow after domain verification.
-
-  // const [otp, setOtp] = useState("");
-  // const [otpSent, setOtpSent] = useState(false);
-  // const [otpVerified, setOtpVerified] = useState(false);
-  // const [sendingOtp, setSendingOtp] = useState(false);
-
+  // Countdown for the resend button
   useEffect(() => {
-    setName("");
-    setEmail("");
-    setPassword("");
-    // setOtp("");
-    // setOtpSent(false);
-    // setOtpVerified(false);
-    setError("");
-  }, []);
+    if (countdown <= 0) return;
 
-  const router = useRouter();
+    const timer = setTimeout(() => {
+      setCountdown((current) => current - 1);
+    }, 1000);
 
-  // async function handleSendOtp() {
-  //   try {
-  //     setSendingOtp(true);
-  //     setError("");
-
-  //     const res = await fetch("/api/send-otp", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         email,
-  //         name,
-  //       }),
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (!res.ok) {
-  //       setError(
-  //         typeof data.error === "string"
-  //           ? data.error
-  //           : data.error?.message || "Something went wrong",
-  //       );
-  //       return;
-  //     }
-
-  //     setOtpSent(true);
-  //   } catch (err) {
-  //     setError("Failed to send OTP");
-  //   } finally {
-  //     setSendingOtp(false);
-  //   }
-  // }
-  // async function handleVerifyOtp() {
-  //   try {
-  //     setError("");
-
-  //     const res = await fetch("/api/verify-otp", {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         email,
-  //         otp,
-  //       }),
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (!res.ok) {
-  //       setError(
-  //         typeof data.error === "string"
-  //           ? data.error
-  //           : data.error?.message || "Something went wrong",
-  //       );
-  //       return;
-  //     }
-
-  //     setOtpVerified(true);
-  //   } catch (err) {
-  //     setError("OTP verification failed");
-  //   }
-  // }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     setError("");
+    setSuccess("");
     setLoading(true);
 
     try {
-      // if (!otpVerified) {
-      //   setError("Please verify your email first");
-      //   setLoading(false);
-      //   return;
-      // }
       const result = await signUp.email({
         name,
         email,
@@ -128,143 +54,182 @@ export default function SignUp() {
       });
 
       if (result.error) {
-        setError(result.error.message ?? "failed to sign up");
+        setError(result.error.message ?? "Failed to sign up");
       } else {
-        router.push("/dashboard");
+        setEmailSent(true);
+        setCountdown(60);
       }
-    } catch (err) {
-      setError("an unexpected error occured");
+    } catch {
+      setError("An unexpected error occurred");
     } finally {
       setLoading(false);
     }
   }
+
+  async function handleResend() {
+    if (countdown > 0 || resending) return;
+
+    setError("");
+    setSuccess("");
+    setResending(true);
+
+    try {
+      const result = await authClient.sendVerificationEmail({
+        email,
+        callbackURL: "/",
+      });
+
+      if (result.error) {
+        setError(
+          result.error.message ?? "Failed to resend verification email"
+        );
+      } else {
+        setSuccess("Verification email sent. Please check your inbox.");
+        setCountdown(60);
+      }
+    } catch {
+      setError("An unexpected error occurred while resending the email");
+    } finally {
+      setResending(false);
+    }
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-white p-4">
       <Card className="w-full max-w-md border-gray-200 shadow-lg">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-black">
-            Sign Up
+            {emailSent ? "Check your email" : "Sign Up"}
           </CardTitle>
+
           <CardDescription className="text-gray-600">
-            Create an account to start tracking your job applications
+            {emailSent
+              ? "Verify your email address to activate your account."
+              : "Create an account to start tracking your job applications"}
           </CardDescription>
         </CardHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
+
+        {emailSent ? (
           <CardContent className="space-y-4">
+            <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+              We've sent a verification link to <strong>{email}</strong>.
+              <br />
+              <br />
+              Open the email and click the verification link to verify your
+              account. If you don't see it, check your spam folder.
+            </div>
+
             {error && (
               <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
                 {error}
               </div>
             )}
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              <strong>Demo Notice:</strong> Email verification is temporarily
-              disabled because a custom domain has not been configured for email
-              delivery yet. All other features of the application are fully
-              functional.
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-700">
-                Name
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="John doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="border-gray-300 focus:border-primary focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700">
-                Email
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="John@example.com"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  // setOtpVerified(false);
-                  // setOtpSent(false);
-                  // setOtp("");
-                }}
-                // disabled={otpVerified}
-                required
-                className="border-gray-300 focus:border-primary focus:ring-primary"
-              />
-            </div>
-            {/*<Button
-              type="button"
-              onClick={handleSendOtp}
-              disabled={sendingOtp || !email || !name || otpVerified}
-              className="w-full"
-            >
-              {sendingOtp ? "Sending OTP..." : "Send OTP"}
-            </Button>
-            {otpSent && !otpVerified && (
-              <div className="space-y-2">
-                <Label htmlFor="otp">OTP</Label>
 
-                <Input
-                  id="otp"
-                  type="text"
-                  placeholder="Enter OTP"
-                  value={otp}
-                  required
-                  onChange={(e) => setOtp(e.target.value)}
-                />
-
-                <Button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  className="w-full"
-                >
-                  Verify OTP
-                </Button>
+            {success && (
+              <div className="rounded-md bg-green-50 p-3 text-sm text-green-800">
+                {success}
               </div>
             )}
-            {otpVerified && (
-              <p className="text-sm font-medium text-green-600">
-                Email verified successfully
-              </p>
-            )}*/}
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-gray-700">
-                Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                placeholder="John12#"
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="border-gray-300 focus:border-primary focus:ring-primary"
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
+
             <Button
-              type="submit"
+              type="button"
               className="w-full bg-primary hover:bg-primary/90"
-              disabled={loading /*|| !otpVerified*/}
+              onClick={handleResend}
+              disabled={countdown > 0 || resending}
             >
-              {loading ? "Creating account..." : "Sign Up"}
+              {resending
+                ? "Sending..."
+                : countdown > 0
+                  ? `Resend email in ${countdown}s`
+                  : "Resend verification email"}
             </Button>
+
             <p className="text-center text-sm text-gray-600">
-              Already have an account?{" "}
+              Already verified?{" "}
               <Link
                 href="/sign-in"
                 className="font-medium text-primary hover:underline"
               >
-                sign In
+                Sign In
               </Link>
             </p>
-          </CardFooter>
-        </form>
+          </CardContent>
+        ) : (
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <CardContent className="space-y-4">
+              {error && (
+                <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-gray-700">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="border-gray-300 focus:border-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-gray-700">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="John@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="border-gray-300 focus:border-primary focus:ring-primary"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-gray-700">
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  placeholder="Enter your password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="border-gray-300 focus:border-primary focus:ring-primary"
+                />
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col space-y-4">
+              <Button
+                type="submit"
+                className="w-full bg-primary hover:bg-primary/90"
+                disabled={loading}
+              >
+                {loading ? "Creating account..." : "Sign Up"}
+              </Button>
+
+              <p className="text-center text-sm text-gray-600">
+                Already have an account?{" "}
+                <Link
+                  href="/sign-in"
+                  className="font-medium text-primary hover:underline"
+                >
+                  Sign In
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        )}
       </Card>
     </div>
   );
